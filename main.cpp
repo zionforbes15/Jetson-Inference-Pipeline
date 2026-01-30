@@ -48,6 +48,11 @@ int main() {
         "" 
     );
 
+    std::cout << "[Warm-up] Running dummy inference to initialize GPU..." << std::endl;
+    cv::Mat dummy_img = cv::Mat::zeros(640, 640, CV_8UC3); 
+    pipeline.run(dummy_img); // 触发 GPU 初始化
+    std::cout << "[Warm-up] Done." << std::endl;
+
     std::vector<std::string> image_paths;
     for(int i = 1; i <= 8; ++i) {
         image_paths.push_back(cv::format("/home/zion/model/test%d.jpg", i));
@@ -97,6 +102,6 @@ int main() {
     std::cout << "\nWaiting for background writer to finish disk I/O..." << std::endl;
     writerThread.join(); 
 
-    std::cout << "[All 8 images processed and saved successfully]" << std::endl;
+    std::cout << "[All images processed and saved successfully]" << std::endl;
     return 0;
 }
