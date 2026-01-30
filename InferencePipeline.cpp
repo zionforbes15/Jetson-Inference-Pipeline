@@ -134,9 +134,10 @@ void InferencePipeline::run_secondary_inference(cv::Mat& frame, std::vector<Dete
         cudaMemcpyAsync(host_output_cls, cls.buffers["class"], 2 * sizeof(float), cudaMemcpyDeviceToHost, stream);
         cudaStreamSynchronize(stream); 
 
-        if (host_output_cls[1] - host_output_cls[0] > 2.0f) {
-            det.cls_result = 1;
-            //回归推理
+        if (host_output_cls[0] > host_output_cls[1]) { 
+            det.cls_result = 0; // 标记为目标
+
+            //执行回归推理
             launch_crop_resize_kernel(d_raw_input, (float*)reg.buffers["image"], 
                                       frame.cols, frame.rows, 224, 224, 
                                       cx, cy, cw, ch, stream);
@@ -145,7 +146,7 @@ void InferencePipeline::run_secondary_inference(cv::Mat& frame, std::vector<Dete
             cudaStreamSynchronize(stream);
             det.reg_result.assign(host_output_reg, host_output_reg + 5);
         } else {
-            det.cls_result = 0;
+            det.cls_result = 1;
         }
     }
 }
@@ -197,7 +198,7 @@ std::vector<Detection> InferencePipeline::run(cv::Mat& frame) {
 
 void InferencePipeline::draw_results(cv::Mat& frame, const std::vector<Detection>& dets) {
     for (const auto& det : dets) {
-        cv::Scalar color = (det.cls_result == 1) ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 255, 0);
+        cv::Scalar color = (det.cls_result == 0) ? cv::Scalar(0, 255, 0) : cv::Scalar(0, 0, 255);
         int thickness = 3;       
         float font_scale = 0.8;  
         int font_thickness = 2;  
