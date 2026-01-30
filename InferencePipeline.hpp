@@ -79,10 +79,10 @@ private:
 
     std::shared_ptr<nvinfer1::IRuntime> mRuntime;
     uint8_t* d_raw_input = nullptr;
+    uint8_t* d_letterbox_tmp = nullptr;
     ModelResource yolo, cls, reg, seg;
     cudaStream_t stream;
     InferenceTime last_time;
-    uint8_t* d_letterbox_tmp = nullptr;
 
     // Host 内存缓冲区指针
     float* host_output_yolo;

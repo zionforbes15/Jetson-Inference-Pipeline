@@ -43,7 +43,7 @@ __global__ void normalize_kernel_optimized(const uint8_t* __restrict__ src, floa
         int target_pos = y * w + x;
         int src_pos = target_pos * 3;
 
-        // 默认输入 BGR 输出 RGB (YOLO 常用)
+        // 默认输入 BGR 输出 RGB
         uint8_t b = src[src_pos + 0];
         uint8_t g = src[src_pos + 1];
         uint8_t r = src[src_pos + 2];
@@ -70,7 +70,7 @@ __global__ void crop_resize_normalize_kernel(
     int dy = blockIdx.y * blockDim.y + threadIdx.y;
 
     if (dx < dst_w && dy < dst_h) {
-        // 计算映射到原图裁剪区域的坐标 (浮点数)
+        // 仿射变换，缩放平移
         float sx = crop_x + (float)dx * crop_w / dst_w;
         float sy = crop_y + (float)dy * crop_h / dst_h;
 

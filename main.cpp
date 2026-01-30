@@ -9,7 +9,7 @@
 #include <condition_variable>
 #include <opencv2/opencv.hpp>
 
-// --- 异步保存队列相关变量 ---
+//异步保存队列相关变量
 struct SaveTask {
     cv::Mat image;
     std::string fileName;
@@ -48,7 +48,6 @@ int main() {
         "" 
     );
 
-    // 准备测试图片路径
     std::vector<std::string> image_paths;
     for(int i = 1; i <= 8; ++i) {
         image_paths.push_back(cv::format("/home/zion/model/test%d.jpg", i));
@@ -75,7 +74,6 @@ int main() {
         //CPU执行绘图
         pipeline.draw_results(img, dets);
 
-        //性能监控输出
         UseCondition(pipeline.getLastInferenceTime());
 
         {

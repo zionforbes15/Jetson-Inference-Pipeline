@@ -61,7 +61,7 @@ void InferencePipeline::run_secondary_inference(cv::Mat& frame, std::vector<Dete
                                   cx, cy, cw, ch, stream);
         cls.context->enqueueV3(stream);
         cudaMemcpyAsync(host_output_cls, cls.buffers["class"], 2 * sizeof(float), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream); //必须同步才能拿到结果做逻辑判断
+        cudaStreamSynchronize(stream); 
 
         if (host_output_cls[1] - host_output_cls[0] > 2.0f) {
             det.cls_result = 1;
@@ -89,7 +89,7 @@ std::vector<Detection> InferencePipeline::run_yolo_only(cv::Mat& frame) {
     blobFromImage(pr_img, (float*)yolo.buffers["images"]);
     yolo.context->enqueueV3(stream);
     cudaMemcpyAsync(host_output_yolo, yolo.buffers["output"], yolo.bufferSizes["output"], cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream); // 同步确保 parseYoloOutput 能拿到数据
+    cudaStreamSynchronize(stream); 
     return parseYoloOutput(host_output_yolo, info, frame.size());
 }
 
