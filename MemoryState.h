@@ -10,8 +10,9 @@
 #include <sys/vfs.h>  
 #include <string> 
 
+struct InferenceTime;
 
-void UseCondition();
+void UseCondition(const InferenceTime& time_data);
 float getGPUUsage();      
 int getGPUFrequency();   
 

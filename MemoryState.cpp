@@ -1,4 +1,5 @@
 #include "MemoryState.h"
+#include "InferencePipeline.hpp"
 #include <stdio.h>
 #include <string.h>
 #include <fstream>
@@ -140,20 +141,20 @@ inline float GetMemoryUsage(int pid) {
     return (float)vmrss / 1024.0; 
 }
 
-void UseCondition() {
-    int current_pid = GetCurrentPid();
-    float cpu_usage = GetCpuUsageRatio(current_pid) * 100.0f;
-    float mem_usage = GetMemoryUsage(current_pid);
+void UseCondition(const InferenceTime& time_data){
+    // 获取当前进程的 CPU 和 内存 状态
+    int pid = getpid();
+    float cpu_usage = GetCpuUsageRatio(pid) * 100.0f;
+    float mem_usage = GetMemoryUsage(pid);
     float gpu_load = getGPUUsage();
     int gpu_freq = getGPUFrequency();
 
     std::cout << "------------------------------------------" << std::endl;
-    std::cout << " [Jetson Orin Nano Super Monitor] PID: " << current_pid << std::endl;
+    std::cout << " CPU Usage : " << std::fixed << std::setprecision(1) << cpu_usage << " %" << std::endl;
+    std::cout << " MEM Usage : " << mem_usage << " MB" << std::endl;
+    std::cout << " GPU Load  : " << gpu_load << " %" << std::endl;
+    std::cout << " GPU Freq  : " << gpu_freq << " MHz" << std::endl;
     std::cout << "------------------------------------------" << std::endl;
-    std::cout << std::fixed << std::setprecision(1); // 设置小数点后1位
-    std::cout << " CPU Usage: " << std::setw(5) << cpu_usage << " %" << std::endl;
-    std::cout << " MEM Usage: " << std::setw(5) << mem_usage << " MB" << std::endl;
-    std::cout << " GPU Load : " << std::setw(5) << gpu_load  << " %" << std::endl;
-    std::cout << " GPU Freq : " << std::setw(5) << gpu_freq  << " MHz" << std::endl;
+    std::cout << " [Latency] Total: " << std::fixed << std::setprecision(2) << time_data.total_ms << " ms" << std::endl;
     std::cout << "------------------------------------------" << std::endl;
 }
