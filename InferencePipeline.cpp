@@ -43,72 +43,6 @@ void InferencePipeline::blobFromImage(const cv::Mat& img, float* d_input) {
     launch_normalize_kernel(d_letterbox_tmp, d_input, img.cols, img.rows, stream);
 }
 
-void InferencePipeline::run_secondary_inference(cv::Mat& frame, std::vector<Detection>& dets) {
-    if (dets.empty() || d_raw_input == nullptr) return;
-    
-    for (size_t i = 0; i < dets.size(); ++i) {
-        auto& det = dets[i];
-        int cx = std::max(0, det.box.x);
-        int cy = std::max(0, det.box.y);
-        int cw = std::min(det.box.width, frame.cols - cx);
-        int ch = std::min(det.box.height, frame.rows - cy);
-
-        if (cw < 4 || ch < 4) continue;
-
-        //分类推理
-        launch_crop_resize_kernel(d_raw_input, (float*)cls.buffers["image"], 
-                                  frame.cols, frame.rows, 224, 224, 
-                                  cx, cy, cw, ch, stream);
-        cls.context->enqueueV3(stream);
-        cudaMemcpyAsync(host_output_cls, cls.buffers["class"], 2 * sizeof(float), cudaMemcpyDeviceToHost, stream);
-        cudaStreamSynchronize(stream); 
-
-        if (host_output_cls[1] - host_output_cls[0] > 2.0f) {
-            det.cls_result = 1;
-            //回归推理
-            launch_crop_resize_kernel(d_raw_input, (float*)reg.buffers["image"], 
-                                      frame.cols, frame.rows, 224, 224, 
-                                      cx, cy, cw, ch, stream);
-            reg.context->enqueueV3(stream);
-            cudaMemcpyAsync(host_output_reg, reg.buffers["class"], 5 * sizeof(float), cudaMemcpyDeviceToHost, stream);
-            cudaStreamSynchronize(stream);
-            det.reg_result.assign(host_output_reg, host_output_reg + 5);
-        } else {
-            det.cls_result = 0;
-        }
-    }
-}
-
-std::vector<Detection> InferencePipeline::run_yolo_only(cv::Mat& frame) {
-    //将原图存入 d_raw_input，给后面的二级推理用
-    cudaMemcpyAsync(d_raw_input, frame.data, frame.cols * frame.rows * 3, cudaMemcpyHostToDevice, stream);
-
-    AffineInfo info; cv::Mat pr_img;
-    VisionUtils::letterbox_v4(frame, pr_img, cv::Size(1600, 1600), info);
-    
-    blobFromImage(pr_img, (float*)yolo.buffers["images"]);
-    yolo.context->enqueueV3(stream);
-    cudaMemcpyAsync(host_output_yolo, yolo.buffers["output"], yolo.bufferSizes["output"], cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream); 
-    return parseYoloOutput(host_output_yolo, info, frame.size());
-}
-
-std::vector<Detection> InferencePipeline::run(cv::Mat& frame) {
-    auto start = std::chrono::high_resolution_clock::now();
-
-    auto dets = run_yolo_only(frame);
-    if (!dets.empty()) {
-        run_secondary_inference(frame, dets);
-    }
-
-    cudaStreamSynchronize(stream); //确保所有异步任务完成
-    auto end = std::chrono::high_resolution_clock::now();
-    last_time.total_ms = std::chrono::duration<float, std::milli>(end - start).count();
-
-    return dets;
-}
-
-
 void InferencePipeline::loadModel(const std::string& path, ModelResource& res) {
     std::ifstream file(path, std::ios::binary);
     if (!file.good()) throw std::runtime_error("Failed to open engine: " + path);
@@ -163,6 +97,70 @@ std::vector<Detection> InferencePipeline::parseYoloOutput(float* output, const A
         results.push_back(det);
     }
     return results;
+}
+std::vector<Detection> InferencePipeline::run_yolo_only(cv::Mat& frame) {
+    //将原图存入 d_raw_input，给后面的二级推理用
+    cudaMemcpyAsync(d_raw_input, frame.data, frame.cols * frame.rows * 3, cudaMemcpyHostToDevice, stream);
+
+    AffineInfo info; cv::Mat pr_img;
+    VisionUtils::letterbox_v4(frame, pr_img, cv::Size(1600, 1600), info);
+    
+    blobFromImage(pr_img, (float*)yolo.buffers["images"]);
+    yolo.context->enqueueV3(stream);
+    cudaMemcpyAsync(host_output_yolo, yolo.buffers["output"], yolo.bufferSizes["output"], cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream); 
+    return parseYoloOutput(host_output_yolo, info, frame.size());
+}
+
+void InferencePipeline::run_secondary_inference(cv::Mat& frame, std::vector<Detection>& dets) {
+    if (dets.empty() || d_raw_input == nullptr) return;
+    
+    for (size_t i = 0; i < dets.size(); ++i) {
+        auto& det = dets[i];
+        int cx = std::max(0, det.box.x);
+        int cy = std::max(0, det.box.y);
+        int cw = std::min(det.box.width, frame.cols - cx);
+        int ch = std::min(det.box.height, frame.rows - cy);
+
+        if (cw < 4 || ch < 4) continue;
+
+        //分类推理
+        launch_crop_resize_kernel(d_raw_input, (float*)cls.buffers["image"], 
+                                  frame.cols, frame.rows, 224, 224, 
+                                  cx, cy, cw, ch, stream);
+        cls.context->enqueueV3(stream);
+        cudaMemcpyAsync(host_output_cls, cls.buffers["class"], 2 * sizeof(float), cudaMemcpyDeviceToHost, stream);
+        cudaStreamSynchronize(stream); 
+
+        if (host_output_cls[1] - host_output_cls[0] > 2.0f) {
+            det.cls_result = 1;
+            //回归推理
+            launch_crop_resize_kernel(d_raw_input, (float*)reg.buffers["image"], 
+                                      frame.cols, frame.rows, 224, 224, 
+                                      cx, cy, cw, ch, stream);
+            reg.context->enqueueV3(stream);
+            cudaMemcpyAsync(host_output_reg, reg.buffers["class"], 5 * sizeof(float), cudaMemcpyDeviceToHost, stream);
+            cudaStreamSynchronize(stream);
+            det.reg_result.assign(host_output_reg, host_output_reg + 5);
+        } else {
+            det.cls_result = 0;
+        }
+    }
+}
+
+std::vector<Detection> InferencePipeline::run(cv::Mat& frame) {
+    auto start = std::chrono::high_resolution_clock::now();
+
+    auto dets = run_yolo_only(frame);
+    if (!dets.empty()) {
+        run_secondary_inference(frame, dets);
+    }
+
+    cudaStreamSynchronize(stream); //确保所有异步任务完成
+    auto end = std::chrono::high_resolution_clock::now();
+    last_time.total_ms = std::chrono::duration<float, std::milli>(end - start).count();
+
+    return dets;
 }
 
 // void InferencePipeline::run_secondary_inference(cv::Mat& frame, std::vector<Detection>& dets) {

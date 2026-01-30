@@ -79,7 +79,7 @@ int main() {
         {
             std::lock_guard<std::mutex> lock(g_queueMtx);
             SaveTask task;
-            task.image = img.clone(); // 必须 clone，否则下一帧会修改当前内存
+            task.image = img.clone(); 
             task.fileName = cv::format("result_img_%zu.jpg", i + 1);
             g_saveQueue.push(std::move(task));
         }
