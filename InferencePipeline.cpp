@@ -51,8 +51,10 @@ void InferencePipeline::loadModel(const std::string& path, ModelResource& res) {
     file.seekg(0, file.beg);
     std::vector<char> data(size);
     file.read(data.data(), size);
+
     res.engine = std::shared_ptr<nvinfer1::ICudaEngine>(mRuntime->deserializeCudaEngine(data.data(), size), TRTDeleter());
     res.context = std::shared_ptr<nvinfer1::IExecutionContext>(res.engine->createExecutionContext(), TRTDeleter());
+
     for (int i = 0; i < res.engine->getNbIOTensors(); ++i) {
         const char* name = res.engine->getIOTensorName(i);
         auto dims = res.engine->getTensorShape(name);
@@ -64,6 +66,19 @@ void InferencePipeline::loadModel(const std::string& path, ModelResource& res) {
     }
 }
 
+std::vector<Detection> InferencePipeline::run_yolo_only(cv::Mat& frame) {
+    //将原图存入 d_raw_input，给后面的二级推理用
+    cudaMemcpyAsync(d_raw_input, frame.data, frame.cols * frame.rows * 3, cudaMemcpyHostToDevice, stream);
+
+    AffineInfo info; cv::Mat pr_img;
+    VisionUtils::letterbox_v4(frame, pr_img, cv::Size(1600, 1600), info);
+    
+    blobFromImage(pr_img, (float*)yolo.buffers["images"]);
+    yolo.context->enqueueV3(stream);
+    cudaMemcpyAsync(host_output_yolo, yolo.buffers["output"], yolo.bufferSizes["output"], cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream); 
+    return parseYoloOutput(host_output_yolo, info, frame.size());
+}
 
 std::vector<Detection> InferencePipeline::parseYoloOutput(float* output, const AffineInfo& info, cv::Size raw_shape) {
     std::vector<Detection> results;
@@ -97,19 +112,6 @@ std::vector<Detection> InferencePipeline::parseYoloOutput(float* output, const A
         results.push_back(det);
     }
     return results;
-}
-std::vector<Detection> InferencePipeline::run_yolo_only(cv::Mat& frame) {
-    //将原图存入 d_raw_input，给后面的二级推理用
-    cudaMemcpyAsync(d_raw_input, frame.data, frame.cols * frame.rows * 3, cudaMemcpyHostToDevice, stream);
-
-    AffineInfo info; cv::Mat pr_img;
-    VisionUtils::letterbox_v4(frame, pr_img, cv::Size(1600, 1600), info);
-    
-    blobFromImage(pr_img, (float*)yolo.buffers["images"]);
-    yolo.context->enqueueV3(stream);
-    cudaMemcpyAsync(host_output_yolo, yolo.buffers["output"], yolo.bufferSizes["output"], cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream); 
-    return parseYoloOutput(host_output_yolo, info, frame.size());
 }
 
 void InferencePipeline::run_secondary_inference(cv::Mat& frame, std::vector<Detection>& dets) {
@@ -192,9 +194,6 @@ std::vector<Detection> InferencePipeline::run(cv::Mat& frame) {
 //         det.reg_result.assign(host_output_reg, host_output_reg + 5);
 //     }
 // }
-
-// InferencePipeline.cpp
-
 
 void InferencePipeline::draw_results(cv::Mat& frame, const std::vector<Detection>& dets) {
     for (const auto& det : dets) {
