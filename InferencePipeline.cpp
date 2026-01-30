@@ -51,7 +51,7 @@ void InferencePipeline::loadModel(const std::string& path, ModelResource& res) {
     file.seekg(0, file.beg);
     std::vector<char> data(size);
     file.read(data.data(), size);
-
+    
     res.engine = std::shared_ptr<nvinfer1::ICudaEngine>(mRuntime->deserializeCudaEngine(data.data(), size), TRTDeleter());
     res.context = std::shared_ptr<nvinfer1::IExecutionContext>(res.engine->createExecutionContext(), TRTDeleter());
 

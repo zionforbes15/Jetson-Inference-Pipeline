@@ -154,7 +154,6 @@ void UseCondition(const InferenceTime& time_data){
     std::cout << " MEM Usage : " << mem_usage << " MB" << std::endl;
     std::cout << " GPU Load  : " << gpu_load << " %" << std::endl;
     std::cout << " GPU Freq  : " << gpu_freq << " MHz" << std::endl;
-    std::cout << "------------------------------------------" << std::endl;
     std::cout << " [Latency] Total: " << std::fixed << std::setprecision(2) << time_data.total_ms << " ms" << std::endl;
     std::cout << "------------------------------------------" << std::endl;
 }

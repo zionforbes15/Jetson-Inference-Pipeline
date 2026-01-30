@@ -72,7 +72,7 @@ private:
         std::map<std::string, size_t> bufferSizes;
     };
 
-    void loadModel(const std::string& path, ModelResource& res); //
+    void loadModel(const std::string& path, ModelResource& res);
     void blobFromImage(const cv::Mat& img, float* d_input);
     void preprocess_simple(const cv::Mat& img, float* d_input, int w, int h);
     std::vector<Detection> parseYoloOutput(float* output, const AffineInfo& info, cv::Size raw_shape);
